@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useContext, useRef } from 'react';
 import L from 'leaflet';
 import { AppContext } from '../contexts/AppContext';
@@ -62,6 +61,10 @@ const trailDotIcon = L.divIcon({
     iconAnchor: [3, 3]
 });
 
+// Helper function to check if map is valid and container is still attached
+const isMapValid = (map: L.Map | null): boolean => {
+  return !!(map && map.getContainer && map.getContainer() && document.body.contains(map.getContainer()));
+};
 
 const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
   const context = useContext(AppContext);
@@ -121,7 +124,7 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
     if (recenterTimeoutRef.current) clearTimeout(recenterTimeoutRef.current);
     recenterTimeoutRef.current = null;
     
-    if (mapRef.current) {
+    if (isMapValid(mapRef.current)) {
         pathPolylineRef.current?.setLatLngs([]);
         startMarkerRef.current?.remove();
         startMarkerRef.current = null;
@@ -174,9 +177,9 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
     const speedKmh = speedMPS !== null ? speedMPS * 3.6 : 0;
     lastGoodPositionRef.current = { lat: latitude, lng: longitude, speed: speedKmh };
 
-    if (mapRef.current && mapInitializedRef.current) {
+    if (isMapValid(mapRef.current) && mapInitializedRef.current) {
         const latLng = L.latLng(latitude, longitude);
-        if(autoCenterMap.current) mapRef.current.setView(latLng, 16);
+        if(autoCenterMap.current) mapRef.current!.setView(latLng, 16);
         currentPositionMarkerRef.current?.setLatLng(latLng);
         accuracyCircleRef.current?.setLatLng(latLng).setRadius(accuracy);
     }
@@ -234,7 +237,11 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
                         autoCenterMap.current = false;
                     });
                     mapInitializedRef.current = true;
-                    setTimeout(() => mapRef.current?.invalidateSize(), 150);
+                    setTimeout(() => {
+                        if (isMapValid(mapRef.current)) {
+                            mapRef.current!.invalidateSize();
+                        }
+                    }, 150);
                 }
             });
             return () => cancelAnimationFrame(rAfId);
@@ -256,7 +263,11 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
                 autoCenterMap.current = false;
             });
             mapInitializedRef.current = true;
-            setTimeout(() => mapRef.current?.invalidateSize(), 100);
+            setTimeout(() => {
+                if (isMapValid(mapRef.current)) {
+                    mapRef.current!.invalidateSize();
+                }
+            }, 100);
         }
     }
     
@@ -286,9 +297,9 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
   }, [handleInitialLocationSuccess, handleInitialLocationError]); 
 
   useEffect(() => {
-    if (mapRef.current && mapInitializedRef.current && lastGoodPositionRef.current && autoCenterMap.current && gpsInitialStatus === 'success') {
+    if (isMapValid(mapRef.current) && mapInitializedRef.current && lastGoodPositionRef.current && autoCenterMap.current && gpsInitialStatus === 'success') {
         const latLng = L.latLng(lastGoodPositionRef.current.lat, lastGoodPositionRef.current.lng);
-        mapRef.current.setView(latLng, 16); 
+        mapRef.current!.setView(latLng, 16); 
         if (currentPositionMarkerRef.current) {
             currentPositionMarkerRef.current.setLatLng(latLng);
         }
@@ -313,11 +324,11 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
 
 
   useEffect(() => {
-      if (mapRef.current && mapInitializedRef.current) {
-          const map = mapRef.current;
+      if (isMapValid(mapRef.current) && mapInitializedRef.current) {
+          const map = mapRef.current!;
           
           requestAnimationFrame(() => { 
-              if(!mapRef.current || !pathPolylineRef.current) return; 
+              if(!isMapValid(mapRef.current) || !pathPolylineRef.current) return; 
 
               if (tileLayerRef.current && !map.hasLayer(tileLayerRef.current)) {
                   tileLayerRef.current.addTo(map);
@@ -354,20 +365,20 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
     const newPoint: AppPoint = { lat: latitude, lng: longitude, speed: currentSpeedKmh };
     lastGoodPositionRef.current = newPoint;
 
-    if (mapRef.current && mapInitializedRef.current) {
+    if (isMapValid(mapRef.current) && mapInitializedRef.current) {
         const latLng = L.latLng(latitude, longitude);
         currentPositionMarkerRef.current?.setLatLng(latLng);
         accuracyCircleRef.current?.setLatLng(latLng).setRadius(accuracy);
 
         if (autoCenterMap.current) {
-            const currentMapView = mapRef.current.getBounds();
-            const mapCenter = mapRef.current.getCenter();
+            const currentMapView = mapRef.current!.getBounds();
+            const mapCenter = mapRef.current!.getCenter();
             const distanceToCenter = mapCenter.distanceTo(latLng);
 
             if (currentMapView.contains(latLng) && distanceToCenter < RECENTER_DISTANCE_THRESHOLD_METERS) {
-                mapRef.current.panTo(latLng, { animate: true, duration: 0.5 });
+                mapRef.current!.panTo(latLng, { animate: true, duration: 0.5 });
             } else {
-                mapRef.current.flyTo(latLng, mapRef.current.getZoom() || 16, { animate: true, duration: 0.5 });
+                mapRef.current!.flyTo(latLng, mapRef.current!.getZoom() || 16, { animate: true, duration: 0.5 });
             }
         }
     }
@@ -382,8 +393,8 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
                 if (!latestPointInCurrentPath || distanceIncrementKm * 1000 >= PATH_POINT_MIN_DISTANCE_METERS) {
                     setDistance(prevDist => prevDist + distanceIncrementKm);
                     
-                    if (mapRef.current && mapInitializedRef.current) {
-                        const trailMarker = L.marker([newPoint.lat, newPoint.lng], { icon: trailDotIcon, pane: 'shadowPane' }).addTo(mapRef.current);
+                    if (isMapValid(mapRef.current) && mapInitializedRef.current) {
+                        const trailMarker = L.marker([newPoint.lat, newPoint.lng], { icon: trailDotIcon, pane: 'shadowPane' }).addTo(mapRef.current!);
                         trailMarkersRef.current.push(trailMarker);
                     }
                     return [...prevPathPoints, newPoint];
@@ -427,23 +438,23 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
     const initialRunPoints: AppPoint[] = [];
     if (lastGoodPositionRef.current) {
         initialRunPoints.push(lastGoodPositionRef.current);
-        if (mapRef.current && mapInitializedRef.current) {
+        if (isMapValid(mapRef.current) && mapInitializedRef.current) {
             const firstTrailMarker = L.marker(
                 [lastGoodPositionRef.current.lat, lastGoodPositionRef.current.lng], 
                 { icon: trailDotIcon, pane: 'shadowPane' }
-            ).addTo(mapRef.current);
+            ).addTo(mapRef.current!);
             trailMarkersRef.current.push(firstTrailMarker);
         }
     }
     setPathPoints(initialRunPoints); 
 
-    if (mapRef.current && mapInitializedRef.current) {
+    if (isMapValid(mapRef.current) && mapInitializedRef.current) {
         pathPolylineRef.current?.setLatLngs([]); 
         if (lastGoodPositionRef.current) {
             const startLatLng = L.latLng(lastGoodPositionRef.current.lat, lastGoodPositionRef.current.lng);
             startMarkerRef.current?.remove(); 
-            startMarkerRef.current = L.marker(startLatLng, { icon: startFlagIcon }).addTo(mapRef.current);
-            mapRef.current.setView(startLatLng, 17); 
+            startMarkerRef.current = L.marker(startLatLng, { icon: startFlagIcon }).addTo(mapRef.current!);
+            mapRef.current!.setView(startLatLng, 17); 
         }
     }
     
@@ -478,8 +489,8 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
   const resumeTracking = () => {
     setStatus('running'); 
     autoCenterMap.current = true; 
-    if (mapRef.current && mapInitializedRef.current && lastGoodPositionRef.current) {
-        mapRef.current.setView(L.latLng(lastGoodPositionRef.current.lat, lastGoodPositionRef.current.lng), mapRef.current.getZoom() || 16, { animate: true });
+    if (isMapValid(mapRef.current) && mapInitializedRef.current && lastGoodPositionRef.current) {
+        mapRef.current!.setView(L.latLng(lastGoodPositionRef.current.lat, lastGoodPositionRef.current.lng), mapRef.current!.getZoom() || 16, { animate: true });
     }
     if (mainTimerRef.current) clearInterval(mainTimerRef.current); 
     mainTimerRef.current = window.setInterval(() => {
@@ -664,12 +675,12 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
       <div className="flex-grow w-full relative rounded-none bg-gray-100 overflow-hidden min-h-[200px] mt-3 border-t border-b border-gray-200">
         <div id="running-map-container" className="w-full h-full bg-gray-200 map-container"></div>
         
-        {!autoCenterMap.current && mapRef.current && mapInitializedRef.current && (
+        {!autoCenterMap.current && isMapValid(mapRef.current) && mapInitializedRef.current && (
           <button
             onClick={() => {
               autoCenterMap.current = true;
-              if (lastGoodPositionRef.current && mapRef.current) {
-                mapRef.current.setView(L.latLng(lastGoodPositionRef.current.lat, lastGoodPositionRef.current.lng), mapRef.current.getZoom() || 16, { animate: true });
+              if (lastGoodPositionRef.current && isMapValid(mapRef.current)) {
+                mapRef.current!.setView(L.latLng(lastGoodPositionRef.current.lat, lastGoodPositionRef.current.lng), mapRef.current!.getZoom() || 16, { animate: true });
               }
             }}
             className="absolute bottom-4 right-4 z-[1000] bg-white p-2 rounded-full shadow-md text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
