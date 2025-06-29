@@ -106,6 +106,68 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
   
   const addFeedItem = context?.addFeedItem;
 
+  const cleanupMapLayers = useCallback(() => {
+    // Clean up all trail markers first
+    if (trailMarkersRef.current.length > 0) {
+      trailMarkersRef.current.forEach(marker => {
+        try {
+          if (marker && marker.remove) {
+            marker.remove();
+          }
+        } catch (e) {
+          console.warn('Error removing trail marker:', e);
+        }
+      });
+      trailMarkersRef.current = [];
+    }
+
+    // Clean up individual layer references
+    if (startMarkerRef.current) {
+      try {
+        startMarkerRef.current.remove();
+      } catch (e) {
+        console.warn('Error removing start marker:', e);
+      }
+      startMarkerRef.current = null;
+    }
+
+    if (currentPositionMarkerRef.current) {
+      try {
+        currentPositionMarkerRef.current.remove();
+      } catch (e) {
+        console.warn('Error removing current position marker:', e);
+      }
+      currentPositionMarkerRef.current = null;
+    }
+
+    if (accuracyCircleRef.current) {
+      try {
+        accuracyCircleRef.current.remove();
+      } catch (e) {
+        console.warn('Error removing accuracy circle:', e);
+      }
+      accuracyCircleRef.current = null;
+    }
+
+    if (pathPolylineRef.current) {
+      try {
+        pathPolylineRef.current.remove();
+      } catch (e) {
+        console.warn('Error removing path polyline:', e);
+      }
+      pathPolylineRef.current = null;
+    }
+
+    if (tileLayerRef.current) {
+      try {
+        tileLayerRef.current.remove();
+      } catch (e) {
+        console.warn('Error removing tile layer:', e);
+      }
+      tileLayerRef.current = null;
+    }
+  }, []);
+
   const resetState = useCallback(() => {
     setStatus('idle');
     setElapsedTime(0);
@@ -223,14 +285,14 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
 
     const mapDiv = document.getElementById('running-map-container');
     if (mapDiv && !mapRef.current && !mapInitializedRef.current) {
-        if (mapDiv.clientHeight === 0 || mapDiv.clientWidth === 0) {
-            const rAfId = requestAnimationFrame(() => {
-                if (document.getElementById('running-map-container') && !mapRef.current && !mapInitializedRef.current) {
-                    const currentCenter = lastGoodPositionRef.current 
-                        ? [lastGoodPositionRef.current.lat, lastGoodPositionRef.current.lng] as L.LatLngTuple
-                        : DEFAULT_MAP_CENTER;
-                    const currentZoom = lastGoodPositionRef.current ? 16 : DEFAULT_MAP_ZOOM;
-                    
+        const initializeMap = () => {
+            if (document.getElementById('running-map-container') && !mapRef.current && !mapInitializedRef.current) {
+                const currentCenter = lastGoodPositionRef.current 
+                    ? [lastGoodPositionRef.current.lat, lastGoodPositionRef.current.lng] as L.LatLngTuple
+                    : DEFAULT_MAP_CENTER;
+                const currentZoom = lastGoodPositionRef.current ? 16 : DEFAULT_MAP_ZOOM;
+                
+                try {
                     mapRef.current = L.map(mapDiv, { center: currentCenter, zoom: currentZoom, zoomControl: true });
                     tileLayerRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -243,55 +305,45 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
                         autoCenterMap.current = false;
                     });
                     mapInitializedRef.current = true;
+                    
+                    // Ensure map size is properly calculated
                     setTimeout(() => {
                         if (isMapValid(mapRef.current)) {
                             mapRef.current!.invalidateSize();
                         }
                     }, 150);
+                } catch (error) {
+                    console.error('Error initializing map:', error);
+                    mapInitializedRef.current = false;
                 }
-            });
+            }
+        };
+
+        if (mapDiv.clientHeight === 0 || mapDiv.clientWidth === 0) {
+            const rAfId = requestAnimationFrame(initializeMap);
             return () => cancelAnimationFrame(rAfId);
         } else {
-             const initialCenter = lastGoodPositionRef.current 
-                ? [lastGoodPositionRef.current.lat, lastGoodPositionRef.current.lng] as L.LatLngTuple
-                : DEFAULT_MAP_CENTER;
-            const initialZoom = lastGoodPositionRef.current ? 16 : DEFAULT_MAP_ZOOM;
-
-            mapRef.current = L.map(mapDiv, { center: initialCenter, zoom: initialZoom, zoomControl: true });
-            tileLayerRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(mapRef.current);
-            pathPolylineRef.current = L.polyline([], { color: '#3B82F6', weight: 4, opacity: 0.8 }).addTo(mapRef.current);
-            currentPositionMarkerRef.current = L.marker(initialCenter, { icon: blueDotIcon, pane: 'markerPane', zIndexOffset: 1000 }).addTo(mapRef.current);
-            accuracyCircleRef.current = L.circle(initialCenter, { radius: 0, color: 'rgba(0,123,255,0.4)', fillColor: 'rgba(0,123,255,0.15)', fillOpacity: 0.15, stroke: false, pane: 'overlayPane' }).addTo(mapRef.current);
-            mapRef.current.on('dragstart zoomstart mousedown', () => { 
-                if (recenterTimeoutRef.current) clearTimeout(recenterTimeoutRef.current);
-                autoCenterMap.current = false;
-            });
-            mapInitializedRef.current = true;
-            setTimeout(() => {
-                if (isMapValid(mapRef.current)) {
-                    mapRef.current!.invalidateSize();
-                }
-            }, 100);
+            initializeMap();
         }
     }
     
     return () => {
       mountedRef.current = false;
       
+      // Clean up all layers before removing the map
+      cleanupMapLayers();
+      
+      // Now safely remove the map
       if (mapRef.current) {
-        mapRef.current.remove();
+        try {
+          mapRef.current.remove();
+        } catch (e) {
+          console.warn('Error removing map:', e);
+        }
         mapRef.current = null;
       }
+      
       mapInitializedRef.current = false;
-      tileLayerRef.current = null; 
-      pathPolylineRef.current = null;
-      currentPositionMarkerRef.current = null;
-      accuracyCircleRef.current = null;
-      startMarkerRef.current = null;
-      trailMarkersRef.current.forEach(marker => marker.remove()); 
-      trailMarkersRef.current = [];
 
       if (watchIdRef.current !== null) {
           navigator.geolocation.clearWatch(watchIdRef.current);
@@ -302,7 +354,7 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
       if (recenterTimeoutRef.current) clearTimeout(recenterTimeoutRef.current);
       recenterTimeoutRef.current = null;
     };
-  }, [handleInitialLocationSuccess, handleInitialLocationError]); 
+  }, [handleInitialLocationSuccess, handleInitialLocationError, cleanupMapLayers]); 
 
   useEffect(() => {
     if (isMapValid(mapRef.current) && mapInitializedRef.current && lastGoodPositionRef.current && autoCenterMap.current && gpsInitialStatus === 'success') {
@@ -404,8 +456,12 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
                     setDistance(prevDist => prevDist + distanceIncrementKm);
                     
                     if (isMapValid(mapRef.current) && mapInitializedRef.current) {
-                        const trailMarker = L.marker([newPoint.lat, newPoint.lng], { icon: trailDotIcon, pane: 'shadowPane' }).addTo(mapRef.current!);
-                        trailMarkersRef.current.push(trailMarker);
+                        try {
+                            const trailMarker = L.marker([newPoint.lat, newPoint.lng], { icon: trailDotIcon, pane: 'shadowPane' }).addTo(mapRef.current!);
+                            trailMarkersRef.current.push(trailMarker);
+                        } catch (error) {
+                            console.warn('Error adding trail marker:', error);
+                        }
                     }
                     return [...prevPathPoints, newPoint];
                 }
@@ -444,18 +500,29 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
     setAvgPaceDisplay("--:--");
     autoCenterMap.current = true;
     
-    trailMarkersRef.current.forEach(marker => marker.remove());
+    // Clean up existing trail markers
+    trailMarkersRef.current.forEach(marker => {
+      try {
+        marker.remove();
+      } catch (e) {
+        console.warn('Error removing existing trail marker:', e);
+      }
+    });
     trailMarkersRef.current = [];
     
     const initialRunPoints: AppPoint[] = [];
     if (lastGoodPositionRef.current) {
         initialRunPoints.push(lastGoodPositionRef.current);
         if (isMapValid(mapRef.current) && mapInitializedRef.current) {
-            const firstTrailMarker = L.marker(
-                [lastGoodPositionRef.current.lat, lastGoodPositionRef.current.lng], 
-                { icon: trailDotIcon, pane: 'shadowPane' }
-            ).addTo(mapRef.current!);
-            trailMarkersRef.current.push(firstTrailMarker);
+            try {
+                const firstTrailMarker = L.marker(
+                    [lastGoodPositionRef.current.lat, lastGoodPositionRef.current.lng], 
+                    { icon: trailDotIcon, pane: 'shadowPane' }
+                ).addTo(mapRef.current!);
+                trailMarkersRef.current.push(firstTrailMarker);
+            } catch (error) {
+                console.warn('Error adding initial trail marker:', error);
+            }
         }
     }
     setPathPoints(initialRunPoints); 
@@ -464,9 +531,13 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
         pathPolylineRef.current?.setLatLngs([]); 
         if (lastGoodPositionRef.current) {
             const startLatLng = L.latLng(lastGoodPositionRef.current.lat, lastGoodPositionRef.current.lng);
-            startMarkerRef.current?.remove(); 
-            startMarkerRef.current = L.marker(startLatLng, { icon: startFlagIcon }).addTo(mapRef.current!);
-            mapRef.current!.setView(startLatLng, 17); 
+            try {
+                startMarkerRef.current?.remove(); 
+                startMarkerRef.current = L.marker(startLatLng, { icon: startFlagIcon }).addTo(mapRef.current!);
+                mapRef.current!.setView(startLatLng, 17); 
+            } catch (error) {
+                console.warn('Error adding start marker:', error);
+            }
         }
     }
     
