@@ -1,10 +1,8 @@
-
-
-
 import React, { useState, useContext, useEffect, useRef, useCallback } from 'react';
 import { AppContext } from '../contexts/AppContext';
 import { TaskType, CreatableBookReadingFeedItem, BookReadingFeedItem } from '../types';
 import { UZBEK_STRINGS, TASK_POINTS } from '../constants';
+import { validateFileUpload, validateBookReading } from '../utils/validation';
 import { XIcon } from './icons/XIcon';
 import { BookOpenIcon } from './icons/BookOpenIcon';
 import { UploadIcon } from './icons/UploadIcon';
@@ -13,7 +11,7 @@ import { StopCircleIcon } from './icons/StopCircleIcon';
 import { PlayIcon } from './icons/PlayIcon';
 import { PauseIcon } from './icons/PauseIcon';
 import { ArrowUturnLeftIcon } from './icons/ArrowUturnLeftIcon';
-
+import LoadingSpinner from './LoadingSpinner';
 
 interface AddBookReadingModalProps {
   onClose: () => void;
@@ -44,7 +42,6 @@ const AddBookReadingModal: React.FC<AddBookReadingModalProps> = ({ onClose }) =>
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const currentAudioStreamRef = useRef<MediaStream | null>(null);
-
 
   useEffect(() => {
     requestAnimationFrame(() => setIsVisible(true));
@@ -83,7 +80,6 @@ const AddBookReadingModal: React.FC<AddBookReadingModalProps> = ({ onClose }) =>
     }
   }, []);
 
-
   const handleClose = useCallback(() => {
     setIsVisible(false);
     stopCurrentAudioStream();
@@ -94,21 +90,21 @@ const AddBookReadingModal: React.FC<AddBookReadingModalProps> = ({ onClose }) =>
     setTimeout(onClose, 300);
   }, [onClose, stopCurrentAudioStream, cleanupMediaRecorder]);
 
-
   const handleBookImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (!file.type.startsWith('image/')) {
-        showToast("Faqat rasm fayllarini yuklang.", 3000);
+      const validation = validateFileUpload(file);
+      if (!validation.isValid) {
+        showToast(validation.error || "Fayl validatsiyasida xatolik", 3000);
         return;
       }
-      if (file.size > 2 * 1024 * 1024) { // 2MB limit
-        showToast("Rasm hajmi 2MB dan oshmasligi kerak.", 3000);
-        return;
-      }
+      
       const reader = new FileReader();
       reader.onloadend = () => {
         setBookImagePreview(reader.result as string); 
+      };
+      reader.onerror = () => {
+        showToast("Faylni o'qishda xatolik yuz berdi", 3000);
       };
       reader.readAsDataURL(file);
     }
@@ -225,7 +221,6 @@ const AddBookReadingModal: React.FC<AddBookReadingModalProps> = ({ onClose }) =>
     }
   }, [audioBlob]);
 
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -234,13 +229,11 @@ const AddBookReadingModal: React.FC<AddBookReadingModalProps> = ({ onClose }) =>
       setErrorMessage("Foydalanuvchi topilmadi. Iltimos, qayta kiring.");
       return;
     }
-    if (!bookTitle.trim()) {
-      setErrorMessage("Asar sarlavhasini kiriting.");
-      return;
-    }
+
     const numPagesRead = parseInt(pagesRead);
-    if (isNaN(numPagesRead) || numPagesRead <= 0) {
-      setErrorMessage("O'qilgan sahifalar sonini to'g'ri kiriting.");
+    const validation = validateBookReading(bookTitle.trim(), numPagesRead);
+    if (!validation.isValid) {
+      setErrorMessage(validation.error || "Validatsiya xatosi");
       return;
     }
 
@@ -275,6 +268,7 @@ const AddBookReadingModal: React.FC<AddBookReadingModalProps> = ({ onClose }) =>
     } catch (error) {
         console.error("Error submitting book reading:", error);
         setErrorMessage("Saqlashda xatolik yuz berdi.");
+        showToast("Saqlashda xatolik yuz berdi", 3000);
     } finally {
         setIsSubmitting(false);
     }
@@ -301,6 +295,7 @@ const AddBookReadingModal: React.FC<AddBookReadingModalProps> = ({ onClose }) =>
             onClick={handleClose} 
             className="text-gray-500 hover:text-black p-1 rounded-full"
             aria-label={UZBEK_STRINGS.cancel}
+            disabled={isSubmitting}
           >
             <XIcon className="w-6 h-6" />
           </button>
@@ -323,6 +318,7 @@ const AddBookReadingModal: React.FC<AddBookReadingModalProps> = ({ onClose }) =>
                 placeholder={UZBEK_STRINGS.bookReadingPlaceholder}
                 required
                 autoFocus
+                disabled={isSubmitting}
               />
             </div>
             <div>
@@ -337,7 +333,9 @@ const AddBookReadingModal: React.FC<AddBookReadingModalProps> = ({ onClose }) =>
                 className={commonInputClass}
                 placeholder={UZBEK_STRINGS.pagesReadPlaceholder}
                 min="1"
+                max="10000"
                 required
+                disabled={isSubmitting}
               />
             </div>
           </div>
@@ -356,12 +354,14 @@ const AddBookReadingModal: React.FC<AddBookReadingModalProps> = ({ onClose }) =>
                   ref={bookImageInputRef}
                   onChange={handleBookImageChange}
                   className="hidden"
+                  disabled={isSubmitting}
                 />
                 <button
                   type="button"
                   onClick={() => bookImageInputRef.current?.click()}
-                  className="w-24 h-36 bg-gray-100 rounded-sm border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-black hover:text-black transition-colors flex-shrink-0"
+                  className="w-24 h-36 bg-gray-100 rounded-sm border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-black hover:text-black transition-colors flex-shrink-0 disabled:opacity-50"
                   aria-label={UZBEK_STRINGS.uploadBookImage}
+                  disabled={isSubmitting}
                 >
                   {bookImagePreview ? (
                      <img src={bookImagePreview} alt="Muqova" className="w-full h-full object-cover rounded-sm"/>
@@ -387,6 +387,7 @@ const AddBookReadingModal: React.FC<AddBookReadingModalProps> = ({ onClose }) =>
                 onChange={(e) => setReview(e.target.value)}
                 className={`${commonInputClass} h-36`}
                 placeholder={UZBEK_STRINGS.reviewPlaceholder}
+                disabled={isSubmitting}
               />
             </div>
           </div>
@@ -416,6 +417,7 @@ const AddBookReadingModal: React.FC<AddBookReadingModalProps> = ({ onClose }) =>
                           type="button" 
                           onClick={togglePlayPause}
                           className={`${buttonBaseClass} bg-black text-white hover:bg-gray-800 flex items-center space-x-1.5 text-xs px-3 py-1.5`}
+                          disabled={isSubmitting}
                       >
                           {isAudioPlaying ? <PauseIcon className="w-4 h-4"/> : <PlayIcon className="w-4 h-4"/>}
                           <span>{isAudioPlaying ? UZBEK_STRINGS.pause : UZBEK_STRINGS.playAudioSummary}</span>
@@ -425,6 +427,7 @@ const AddBookReadingModal: React.FC<AddBookReadingModalProps> = ({ onClose }) =>
                           onClick={handleDeleteAudio}
                           title={UZBEK_STRINGS.redoAudioSummary}
                           className={`${buttonBaseClass} bg-gray-200 text-gray-700 hover:bg-gray-300 p-0 w-7 h-7 flex items-center justify-center text-xs`}
+                          disabled={isSubmitting}
                       >
                           <ArrowUturnLeftIcon className="w-4 h-4"/>
                       </button>
@@ -436,7 +439,8 @@ const AddBookReadingModal: React.FC<AddBookReadingModalProps> = ({ onClose }) =>
                   <button 
                     type="button" 
                     onClick={startAudioRecording}
-                    className="p-2 bg-black rounded-full text-white hover:bg-gray-800 transition-colors"
+                    className="p-2 bg-black rounded-full text-white hover:bg-gray-800 transition-colors disabled:opacity-50"
+                    disabled={isSubmitting}
                   >
                     <MicrophoneIcon className="w-5 h-5"/> 
                   </button>
@@ -474,6 +478,7 @@ const AddBookReadingModal: React.FC<AddBookReadingModalProps> = ({ onClose }) =>
               type="button"
               onClick={handleClose}
               className={`${buttonBaseClass} bg-gray-200 text-gray-800 hover:bg-gray-300 focus:ring-gray-400`}
+              disabled={isSubmitting}
             >
               {UZBEK_STRINGS.cancel}
             </button>
@@ -481,9 +486,10 @@ const AddBookReadingModal: React.FC<AddBookReadingModalProps> = ({ onClose }) =>
               type="submit"
               onClick={handleSubmit} 
               disabled={isSubmitting || isRecordingAudio}
-              className={`${buttonBaseClass} bg-black text-white hover:bg-gray-800 focus:ring-black disabled:bg-gray-400 disabled:cursor-not-allowed`}
+              className={`${buttonBaseClass} bg-black text-white hover:bg-gray-800 focus:ring-black disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-2`}
             >
-              {isSubmitting ? UZBEK_STRINGS.saving : (isEditing ? UZBEK_STRINGS.saveChanges : UZBEK_STRINGS.save)}
+              {isSubmitting && <LoadingSpinner size="sm" />}
+              <span>{isSubmitting ? UZBEK_STRINGS.saving : (isEditing ? UZBEK_STRINGS.saveChanges : UZBEK_STRINGS.save)}</span>
             </button>
           </div>
         </div>

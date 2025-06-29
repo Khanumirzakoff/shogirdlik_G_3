@@ -1,6 +1,3 @@
-
-
-
 import React, { createContext, useState, useEffect, useCallback, useRef } from 'react';
 import { User, Task, FeedItem, AppContextType, TaskType, CreatableFeedItem, RunningFeedItem, BookReadingFeedItem, SyncQueueItem, SyncActionType, DailyPlanFeedItem, WakeUpFeedItem, Point, TodoItem, UserComment, UserAchievement } from '../types';
 import { DEFAULT_USER_ID, UZBEK_STRINGS, MANDATORY_TASK_TYPES_FOR_PLAN, MAX_SYNC_RETRIES, SYNC_RETRY_DELAY_MS } from '../constants';
@@ -53,7 +50,6 @@ const sampleComments: UserComment[] = [
         timestamp: new Date(now - 1000 * 60 * 20) 
     }
 ];
-
 
 const initialFeedItemsFallback: FeedItem[] = [
    {
@@ -117,7 +113,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Search State
   const [searchTerm, setSearchTermInternal] = useState<string>('');
-
 
   useEffect(() => {
     const loadData = async () => {
@@ -319,47 +314,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [isOnline, synchronizePendingTasks]);
 
-
   const setCurrentUser = useCallback(async (user: User | null) => {
-    setCurrentUserInternal(user);
-    if (user) {
-      await db.setCurrentUserDB(user);
-    } else {
-      // If user is null (e.g., during logout process before clearCurrentUserDB is called by logoutUser),
-      // we might not want to store 'null' in DB, or handle it specifically.
-      // For now, logoutUser will handle clearing.
+    try {
+      setCurrentUserInternal(user);
+      if (user) {
+        await db.setCurrentUserDB(user);
+      } else {
+        // If user is null (e.g., during logout process before clearCurrentUserDB is called by logoutUser),
+        // we might not want to store 'null' in DB, or handle it specifically.
+        // For now, logoutUser will handle clearing.
+      }
+    } catch (error) {
+      console.error('Error setting current user:', error);
+      showToast('Foydalanuvchini saqlashda xatolik', 3000);
     }
-  }, []);
+  }, [showToast]);
 
   const logoutUser = useCallback(async () => {
-    setCurrentUserInternal(null);
-    await db.clearCurrentUserDB();
-    // Reset other relevant states if necessary
-    setViewingUserProfileIdInternal(null);
-    setCurrentViewInternal('home'); 
-    showToast("Tizimdan chiqdingiz.", 2000);
+    try {
+      setCurrentUserInternal(null);
+      await db.clearCurrentUserDB();
+      // Reset other relevant states if necessary
+      setViewingUserProfileIdInternal(null);
+      setCurrentViewInternal('home'); 
+      showToast("Tizimdan chiqdingiz.", 2000);
+    } catch (error) {
+      console.error('Error during logout:', error);
+      showToast('Chiqishda xatolik yuz berdi', 3000);
+    }
   }, [showToast]);
 
   const setAllUsers = useCallback(async (usersUpdater: React.SetStateAction<User[]>) => {
-    const oldUsers = allUsers; 
-    const newUsers = typeof usersUpdater === 'function' ? usersUpdater(oldUsers) : usersUpdater;
-    setAllUsersInternal(newUsers);
-    await db.setAllUsersDB(newUsers);
-  }, [allUsers]);
+    try {
+      const oldUsers = allUsers; 
+      const newUsers = typeof usersUpdater === 'function' ? usersUpdater(oldUsers) : usersUpdater;
+      setAllUsersInternal(newUsers);
+      await db.setAllUsersDB(newUsers);
+    } catch (error) {
+      console.error('Error setting all users:', error);
+      showToast('Foydalanuvchilarni saqlashda xatolik', 3000);
+    }
+  }, [allUsers, showToast]);
 
   const setFeedItems = useCallback(async (itemsUpdater: React.SetStateAction<FeedItem[]>) => {
-      const oldItems = feedItems; 
-      const newItemsRaw = typeof itemsUpdater === 'function' ? itemsUpdater(oldItems) : itemsUpdater;
-      const processedItems = newItemsRaw.map(item => ({
-        ...ensureDateObjectsInFeedItem(item),
-        likedBy: item.likedBy || [], 
-        comments: (item.comments || []).map(c => ({...c, timestamp: new Date(c.timestamp)})), 
-        isOffline: item.isOffline || false,
-        syncFailed: item.syncFailed || false,
-      })).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      setFeedItemsInternal(processedItems);
-      await db.setFeedItemsDB(processedItems);
-  }, [feedItems]);
+      try {
+        const oldItems = feedItems; 
+        const newItemsRaw = typeof itemsUpdater === 'function' ? itemsUpdater(oldItems) : itemsUpdater;
+        const processedItems = newItemsRaw.map(item => ({
+          ...ensureDateObjectsInFeedItem(item),
+          likedBy: item.likedBy || [], 
+          comments: (item.comments || []).map(c => ({...c, timestamp: new Date(c.timestamp)})), 
+          isOffline: item.isOffline || false,
+          syncFailed: item.syncFailed || false,
+        })).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        setFeedItemsInternal(processedItems);
+        await db.setFeedItemsDB(processedItems);
+      } catch (error) {
+        console.error('Error setting feed items:', error);
+        showToast('Ma\'lumotlarni saqlashda xatolik', 3000);
+      }
+  }, [feedItems, showToast]);
 
   const setSelectedTaskFilter = useCallback((filterUpdater: React.SetStateAction<TaskType | null>) => {
     setSelectedTaskFilterInternal(filterUpdater);
@@ -398,276 +412,304 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addFeedItem = useCallback(async (itemData: CreatableFeedItem, options?: { showExistsError?: (message: string) => void }) => {
     if (!currentUser) return;
 
-    const submissionTimestamp = new Date();
+    try {
+      const submissionTimestamp = new Date();
 
-    if (itemData.type === TaskType.DAILY_PLAN) {
-        const planDate = (itemData as DailyPlanFeedItem).planDate; 
-        const planDateString = new Date(planDate).toDateString();
-        const existingPlan = feedItems.find(
-            (fi) =>
-                fi.type === TaskType.DAILY_PLAN &&
-                fi.userId === currentUser.id &&
-                new Date((fi as DailyPlanFeedItem).planDate).toDateString() === planDateString
-        );
-        if (existingPlan) {
-            const errorMessage = UZBEK_STRINGS.dailyPlanExistsError(new Date(planDate).toLocaleDateString('uz-UZ'));
-            if (options?.showExistsError) {
-                 options.showExistsError(errorMessage);
-            } else {
-                showToast(errorMessage, 4000); 
-            }
-            return; 
-        }
-    }
+      if (itemData.type === TaskType.DAILY_PLAN) {
+          const planDate = (itemData as DailyPlanFeedItem).planDate; 
+          const planDateString = new Date(planDate).toDateString();
+          const existingPlan = feedItems.find(
+              (fi) =>
+                  fi.type === TaskType.DAILY_PLAN &&
+                  fi.userId === currentUser.id &&
+                  new Date((fi as DailyPlanFeedItem).planDate).toDateString() === planDateString
+          );
+          if (existingPlan) {
+              const errorMessage = UZBEK_STRINGS.dailyPlanExistsError(new Date(planDate).toLocaleDateString('uz-UZ'));
+              if (options?.showExistsError) {
+                   options.showExistsError(errorMessage);
+              } else {
+                  showToast(errorMessage, 4000); 
+              }
+              return; 
+          }
+      }
 
-    if (itemData.type === TaskType.WAKE_UP) {
-        const todayString = submissionTimestamp.toDateString();
-        const existingWakeUp = feedItems.find(
-            (fi) =>
-                fi.type === TaskType.WAKE_UP &&
-                fi.userId === currentUser.id &&
-                new Date(fi.timestamp).toDateString() === todayString
-        );
-        if (existingWakeUp) {
-            const errorMessage = UZBEK_STRINGS.wakeUpExistsError(submissionTimestamp.toLocaleDateString('uz-UZ'));
-            if (options?.showExistsError) {
-                options.showExistsError(errorMessage);
-            } else {
-                showToast(errorMessage, 4000); 
-            }
-            return; 
-        }
-    }
-    
-    const baseId = submissionTimestamp.getTime();
-    const temporaryId = `offline-${baseId}-${Math.random().toString(36).substr(2, 5)}`;
-    const onlineId = `feed-${baseId}-${Math.random().toString(36).substr(2, 5)}`;
-    const points = calculatePoints(itemData);
+      if (itemData.type === TaskType.WAKE_UP) {
+          const todayString = submissionTimestamp.toDateString();
+          const existingWakeUp = feedItems.find(
+              (fi) =>
+                  fi.type === TaskType.WAKE_UP &&
+                  fi.userId === currentUser.id &&
+                  new Date(fi.timestamp).toDateString() === todayString
+          );
+          if (existingWakeUp) {
+              const errorMessage = UZBEK_STRINGS.wakeUpExistsError(submissionTimestamp.toLocaleDateString('uz-UZ'));
+              if (options?.showExistsError) {
+                  options.showExistsError(errorMessage);
+              } else {
+                  showToast(errorMessage, 4000); 
+              }
+              return; 
+          }
+      }
+      
+      const baseId = submissionTimestamp.getTime();
+      const temporaryId = `offline-${baseId}-${Math.random().toString(36).substr(2, 5)}`;
+      const onlineId = `feed-${baseId}-${Math.random().toString(36).substr(2, 5)}`;
+      const points = calculatePoints(itemData);
 
-    const newFeedItem: FeedItem = ensureDateObjectsInFeedItem({
-        ...itemData,
-        id: isOnline ? onlineId : temporaryId,
-        timestamp: submissionTimestamp,
-        userId: currentUser.id,
-        userName: `${currentUser.name} ${currentUser.surname}`,
-        userProfilePic: currentUser.profilePictureUrl,
-        isOffline: !isOnline,
-        pointsAwarded: points,
-        likedBy: [], 
-        comments: [], 
-        syncFailed: false,
-    } as FeedItem); 
+      const newFeedItem: FeedItem = ensureDateObjectsInFeedItem({
+          ...itemData,
+          id: isOnline ? onlineId : temporaryId,
+          timestamp: submissionTimestamp,
+          userId: currentUser.id,
+          userName: `${currentUser.name} ${currentUser.surname}`,
+          userProfilePic: currentUser.profilePictureUrl,
+          isOffline: !isOnline,
+          pointsAwarded: points,
+          likedBy: [], 
+          comments: [], 
+          syncFailed: false,
+      } as FeedItem); 
 
-    setFeedItems(prevItems => {
-        let updatedItems = [...prevItems];
+      setFeedItems(prevItems => {
+          let updatedItems = [...prevItems];
 
-        if (MANDATORY_TASK_TYPES_FOR_PLAN.includes(newFeedItem.type) && newFeedItem.userId === currentUser.id) {
-            const submittedTaskDate = newFeedItem.type === TaskType.RUNNING && (newFeedItem as RunningFeedItem).eventTimestamp
-                ? new Date((newFeedItem as RunningFeedItem).eventTimestamp!) 
-                : new Date(newFeedItem.timestamp);
-            const submittedTaskDateString = submittedTaskDate.toDateString();
+          if (MANDATORY_TASK_TYPES_FOR_PLAN.includes(newFeedItem.type) && newFeedItem.userId === currentUser.id) {
+              const submittedTaskDate = newFeedItem.type === TaskType.RUNNING && (newFeedItem as RunningFeedItem).eventTimestamp
+                  ? new Date((newFeedItem as RunningFeedItem).eventTimestamp!) 
+                  : new Date(newFeedItem.timestamp);
+              const submittedTaskDateString = submittedTaskDate.toDateString();
 
-            updatedItems = updatedItems.map(fi => {
-                if (fi.type === TaskType.DAILY_PLAN && fi.userId === currentUser.id) {
-                    const plan = fi as DailyPlanFeedItem;
-                    const planDateObject = plan.planDate instanceof Date ? plan.planDate : new Date(plan.planDate);
-                    
-                    if (planDateObject.toDateString() === submittedTaskDateString) {
-                        let planWasModified = false;
-                        const updatedTodos = plan.todos.map(todo => {
-                            if (todo.isMandatory && todo.taskType === newFeedItem.type && !todo.isCompleted) {
-                                planWasModified = true;
-                                return { ...todo, isCompleted: true };
-                            }
-                            return todo;
-                        });
-                        if (planWasModified) {
-                            return { ...plan, todos: updatedTodos };
-                        }
-                    }
-                }
-                return fi; 
-            });
-        }
-        return [newFeedItem, ...updatedItems].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    });
+              updatedItems = updatedItems.map(fi => {
+                  if (fi.type === TaskType.DAILY_PLAN && fi.userId === currentUser.id) {
+                      const plan = fi as DailyPlanFeedItem;
+                      const planDateObject = plan.planDate instanceof Date ? plan.planDate : new Date(plan.planDate);
+                      
+                      if (planDateObject.toDateString() === submittedTaskDateString) {
+                          let planWasModified = false;
+                          const updatedTodos = plan.todos.map(todo => {
+                              if (todo.isMandatory && todo.taskType === newFeedItem.type && !todo.isCompleted) {
+                                  planWasModified = true;
+                                  return { ...todo, isCompleted: true };
+                              }
+                              return todo;
+                          });
+                          if (planWasModified) {
+                              return { ...plan, todos: updatedTodos };
+                          }
+                      }
+                  }
+                  return fi; 
+              });
+          }
+          return [newFeedItem, ...updatedItems].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      });
 
-
-    if (!isOnline) {
-        const syncItem: SyncQueueItem = {
-            id: `sync-add-${Date.now()}-${newFeedItem.id}`, 
-            actionType: SyncActionType.ADD_FEED_ITEM,
-            payload: newFeedItem, 
-            timestamp: Date.now(),
-            itemId: newFeedItem.id, 
-            retryCount: 0,
-        };
-        await db.addSyncQueueItemDB(syncItem);
+      if (!isOnline) {
+          const syncItem: SyncQueueItem = {
+              id: `sync-add-${Date.now()}-${newFeedItem.id}`, 
+              actionType: SyncActionType.ADD_FEED_ITEM,
+              payload: newFeedItem, 
+              timestamp: Date.now(),
+              itemId: newFeedItem.id, 
+              retryCount: 0,
+          };
+          await db.addSyncQueueItemDB(syncItem);
+      }
+    } catch (error) {
+      console.error('Error adding feed item:', error);
+      showToast('Vazifa qo\'shishda xatolik yuz berdi', 3000);
     }
   }, [currentUser, isOnline, setFeedItems, feedItems, showToast]); 
 
   const updateDailyPlan = useCallback(async (planId: string, newTodos: TodoItem[], newPlanDate: Date) => {
-    let updatedPlanForSync: DailyPlanFeedItem | null = null;
-    
-    setFeedItems(prevItems => {
-      const updatedItems = prevItems.map(item => {
-        if (item.id === planId && item.type === TaskType.DAILY_PLAN) {
-          const existingPlan = item as DailyPlanFeedItem;
-          updatedPlanForSync = ensureDateObjectsInFeedItem({
-            ...existingPlan,
-            todos: newTodos,
-            planDate: newPlanDate, 
-            isOffline: !isOnline, 
-            syncFailed: existingPlan.syncFailed || !isOnline, // Preserve syncFailed status or set if offline
-          }) as DailyPlanFeedItem;
-          return updatedPlanForSync;
-        }
-        return item;
+    try {
+      let updatedPlanForSync: DailyPlanFeedItem | null = null;
+      
+      setFeedItems(prevItems => {
+        const updatedItems = prevItems.map(item => {
+          if (item.id === planId && item.type === TaskType.DAILY_PLAN) {
+            const existingPlan = item as DailyPlanFeedItem;
+            updatedPlanForSync = ensureDateObjectsInFeedItem({
+              ...existingPlan,
+              todos: newTodos,
+              planDate: newPlanDate, 
+              isOffline: !isOnline, 
+              syncFailed: existingPlan.syncFailed || !isOnline, // Preserve syncFailed status or set if offline
+            }) as DailyPlanFeedItem;
+            return updatedPlanForSync;
+          }
+          return item;
+        });
+        return updatedItems.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       });
-      return updatedItems.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    });
 
-    if (!isOnline && updatedPlanForSync) {
-        const syncItem: SyncQueueItem = {
-            id: `sync-update-${Date.now()}-${planId}`,
-            actionType: SyncActionType.UPDATE_FEED_ITEM,
-            payload: updatedPlanForSync, 
-            timestamp: Date.now(),
-            itemId: planId,
-            retryCount: 0,
-        };
-        await db.addSyncQueueItemDB(syncItem);
-    } else if (isOnline && updatedPlanForSync) { 
-        await db.addFeedItemDB(updatedPlanForSync); // Save to DB if online (will mark isOffline false)
-    } else if (!isOnline && !updatedPlanForSync) {
-         console.error("Could not find item in feedItems to create sync payload for UPDATE_FEED_ITEM during updateDailyPlan", planId);
+      if (!isOnline && updatedPlanForSync) {
+          const syncItem: SyncQueueItem = {
+              id: `sync-update-${Date.now()}-${planId}`,
+              actionType: SyncActionType.UPDATE_FEED_ITEM,
+              payload: updatedPlanForSync, 
+              timestamp: Date.now(),
+              itemId: planId,
+              retryCount: 0,
+          };
+          await db.addSyncQueueItemDB(syncItem);
+      } else if (isOnline && updatedPlanForSync) { 
+          await db.addFeedItemDB(updatedPlanForSync); // Save to DB if online (will mark isOffline false)
+      } else if (!isOnline && !updatedPlanForSync) {
+           console.error("Could not find item in feedItems to create sync payload for UPDATE_FEED_ITEM during updateDailyPlan", planId);
+      }
+    } catch (error) {
+      console.error('Error updating daily plan:', error);
+      showToast('Rejani yangilashda xatolik', 3000);
     }
-  }, [setFeedItems, isOnline]);
+  }, [setFeedItems, isOnline, showToast]);
   
   const updateFeedItem = useCallback(async (updatedItem: FeedItem) => {
-    const finalItem = ensureDateObjectsInFeedItem({
-        ...updatedItem,
-        isOffline: !isOnline,
-        syncFailed: updatedItem.syncFailed || !isOnline,
-    });
-    
-    setFeedItems(prevItems => {
-        const newItems = prevItems.map(item => (item.id === finalItem.id ? finalItem : item));
-        return newItems.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    });
+    try {
+      const finalItem = ensureDateObjectsInFeedItem({
+          ...updatedItem,
+          isOffline: !isOnline,
+          syncFailed: updatedItem.syncFailed || !isOnline,
+      });
+      
+      setFeedItems(prevItems => {
+          const newItems = prevItems.map(item => (item.id === finalItem.id ? finalItem : item));
+          return newItems.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      });
 
-    if (!isOnline) {
-        const syncItem: SyncQueueItem = {
-            id: `sync-update-${Date.now()}-${finalItem.id}`,
-            actionType: SyncActionType.UPDATE_FEED_ITEM,
-            payload: finalItem,
-            timestamp: Date.now(),
-            itemId: finalItem.id,
-            retryCount: 0,
-        };
-        await db.addSyncQueueItemDB(syncItem);
-    } else {
-        await db.addFeedItemDB(finalItem);
+      if (!isOnline) {
+          const syncItem: SyncQueueItem = {
+              id: `sync-update-${Date.now()}-${finalItem.id}`,
+              actionType: SyncActionType.UPDATE_FEED_ITEM,
+              payload: finalItem,
+              timestamp: Date.now(),
+              itemId: finalItem.id,
+              retryCount: 0,
+          };
+          await db.addSyncQueueItemDB(syncItem);
+      } else {
+          await db.addFeedItemDB(finalItem);
+      }
+    } catch (error) {
+      console.error('Error updating feed item:', error);
+      showToast('Xabarni yangilashda xatolik', 3000);
     }
-  }, [setFeedItems, isOnline]);
-
+  }, [setFeedItems, isOnline, showToast]);
 
   const updateUserProfile = useCallback(async (name: string, surname: string, profilePictureUrl?: string): Promise<void> => {
     if (!currentUser) return;
 
-    const updatedUserData = { 
-      ...currentUser, 
-      name, 
-      surname, 
-      profilePictureUrl: profilePictureUrl ?? currentUser.profilePictureUrl 
-    };
-
-    setCurrentUserInternal(updatedUserData); 
-    await db.setCurrentUserDB(updatedUserData);
-    
-    setAllUsersInternal(prevAllUsers => {
-        const newAllUsers = prevAllUsers.map(u => u.id === updatedUserData.id ? updatedUserData : u);
-        db.setAllUsersDB(newAllUsers); 
-        return newAllUsers;
-    });
-
-    setFeedItemsInternal(prevFeedItems => {
-        const newFeedItems = prevFeedItems.map(item => 
-          item.userId === currentUser.id 
-          ? ensureDateObjectsInFeedItem({ ...item, userName: `${updatedUserData.name} ${updatedUserData.surname}`, userProfilePic: updatedUserData.profilePictureUrl }) 
-          : ensureDateObjectsInFeedItem(item) 
-        );
-        db.setFeedItemsDB(newFeedItems); 
-        return newFeedItems;
-    });
-    
-    if (!isOnline) {
-      const syncItem: SyncQueueItem = {
-        id: `sync-profile-${Date.now()}`,
-        actionType: SyncActionType.UPDATE_USER_PROFILE,
-        payload: updatedUserData,
-        timestamp: Date.now(),
-        itemId: updatedUserData.id, 
-        retryCount: 0,
+    try {
+      const updatedUserData = { 
+        ...currentUser, 
+        name, 
+        surname, 
+        profilePictureUrl: profilePictureUrl ?? currentUser.profilePictureUrl 
       };
-      await db.addSyncQueueItemDB(syncItem);
+
+      setCurrentUserInternal(updatedUserData); 
+      await db.setCurrentUserDB(updatedUserData);
+      
+      setAllUsersInternal(prevAllUsers => {
+          const newAllUsers = prevAllUsers.map(u => u.id === updatedUserData.id ? updatedUserData : u);
+          db.setAllUsersDB(newAllUsers); 
+          return newAllUsers;
+      });
+
+      setFeedItemsInternal(prevFeedItems => {
+          const newFeedItems = prevFeedItems.map(item => 
+            item.userId === currentUser.id 
+            ? ensureDateObjectsInFeedItem({ ...item, userName: `${updatedUserData.name} ${updatedUserData.surname}`, userProfilePic: updatedUserData.profilePictureUrl }) 
+            : ensureDateObjectsInFeedItem(item) 
+          );
+          db.setFeedItemsDB(newFeedItems); 
+          return newFeedItems;
+      });
+      
+      if (!isOnline) {
+        const syncItem: SyncQueueItem = {
+          id: `sync-profile-${Date.now()}`,
+          actionType: SyncActionType.UPDATE_USER_PROFILE,
+          payload: updatedUserData,
+          timestamp: Date.now(),
+          itemId: updatedUserData.id, 
+          retryCount: 0,
+        };
+        await db.addSyncQueueItemDB(syncItem);
+      }
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      showToast('Profilni yangilashda xatolik', 3000);
     }
-  }, [currentUser, isOnline]); 
+  }, [currentUser, isOnline, showToast]); 
 
   const getUserRating = useCallback((userId: string, taskType: TaskType | null = null): number => {
-    return feedItems.reduce((totalPoints, item) => {
-      if (item.userId === userId) {
-        if (taskType === null || item.type === taskType) { 
-          return totalPoints + (item.pointsAwarded || 0); 
+    try {
+      return feedItems.reduce((totalPoints, item) => {
+        if (item.userId === userId) {
+          if (taskType === null || item.type === taskType) { 
+            return totalPoints + (item.pointsAwarded || 0); 
+          }
         }
-      }
-      return totalPoints;
-    }, 0);
+        return totalPoints;
+      }, 0);
+    } catch (error) {
+      console.error('Error calculating user rating:', error);
+      return 0;
+    }
   }, [feedItems]);
 
   const togglePersonalTodoCompletion = useCallback(async (planId: string, todoId: string) => {
-    let updatedPlanForSync: DailyPlanFeedItem | null = null;
+    try {
+      let updatedPlanForSync: DailyPlanFeedItem | null = null;
 
-    setFeedItems(prevItems => {
-      const updatedItems = prevItems.map(item => {
-        if (item.id === planId && item.type === TaskType.DAILY_PLAN) {
-          const plan = item as DailyPlanFeedItem;
-          const updatedTodos = plan.todos.map(todo => {
-            if (todo.id === todoId && !todo.isMandatory) { 
-              return { ...todo, isCompleted: !todo.isCompleted };
-            }
-            return todo;
-          });
-          
-          updatedPlanForSync = ensureDateObjectsInFeedItem({ 
-              ...plan, 
-              todos: updatedTodos, 
-              isOffline: !isOnline,
-              syncFailed: plan.syncFailed || !isOnline, 
-            }) as DailyPlanFeedItem;
-          return updatedPlanForSync;
-        }
-        return item;
+      setFeedItems(prevItems => {
+        const updatedItems = prevItems.map(item => {
+          if (item.id === planId && item.type === TaskType.DAILY_PLAN) {
+            const plan = item as DailyPlanFeedItem;
+            const updatedTodos = plan.todos.map(todo => {
+              if (todo.id === todoId && !todo.isMandatory) { 
+                return { ...todo, isCompleted: !todo.isCompleted };
+              }
+              return todo;
+            });
+            
+            updatedPlanForSync = ensureDateObjectsInFeedItem({ 
+                ...plan, 
+                todos: updatedTodos, 
+                isOffline: !isOnline,
+                syncFailed: plan.syncFailed || !isOnline, 
+              }) as DailyPlanFeedItem;
+            return updatedPlanForSync;
+          }
+          return item;
+        });
+        return updatedItems.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()); 
       });
-      return updatedItems.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()); 
-    });
 
-    if (!isOnline && updatedPlanForSync) {
-      const syncItem: SyncQueueItem = {
-        id: `sync-update-todo-${Date.now()}-${planId}-${todoId}`,
-        actionType: SyncActionType.UPDATE_FEED_ITEM,
-        payload: updatedPlanForSync, 
-        timestamp: Date.now(),
-        itemId: planId,
-        retryCount: 0,
-      };
-      await db.addSyncQueueItemDB(syncItem);
-    } else if (isOnline && updatedPlanForSync) {
-        await db.addFeedItemDB(updatedPlanForSync);
-    } else if (!isOnline && !updatedPlanForSync) {
-        console.error("Could not find plan to create sync payload for togglePersonalTodoCompletion", planId);
+      if (!isOnline && updatedPlanForSync) {
+        const syncItem: SyncQueueItem = {
+          id: `sync-update-todo-${Date.now()}-${planId}-${todoId}`,
+          actionType: SyncActionType.UPDATE_FEED_ITEM,
+          payload: updatedPlanForSync, 
+          timestamp: Date.now(),
+          itemId: planId,
+          retryCount: 0,
+        };
+        await db.addSyncQueueItemDB(syncItem);
+      } else if (isOnline && updatedPlanForSync) {
+          await db.addFeedItemDB(updatedPlanForSync);
+      } else if (!isOnline && !updatedPlanForSync) {
+          console.error("Could not find plan to create sync payload for togglePersonalTodoCompletion", planId);
+      }
+    } catch (error) {
+      console.error('Error toggling todo completion:', error);
+      showToast('Vazifani yangilashda xatolik', 3000);
     }
-  }, [setFeedItems, isOnline]); 
+  }, [setFeedItems, isOnline, showToast]); 
   
   const navigateToHomeAndSetFilterInternal = useCallback((filter: TaskType | null) => {
     setCurrentViewInternal('home');
@@ -736,110 +778,125 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isDailyPlanModalOpen) closeDailyPlanModal();
   }, [isAddBookModalOpen, isDailyPlanModalOpen, closeDailyPlanModal]);
 
-
   const toggleLikeFeedItem = useCallback(async (feedItemId: string) => {
     if (!currentUser) return;
-    let updatedItemForSync: FeedItem | null = null;
+    
+    try {
+      let updatedItemForSync: FeedItem | null = null;
 
-    setFeedItems(prevItems => {
-        const newItems = prevItems.map(item => {
-            if (item.id === feedItemId) {
-                const likedByCurrentUser = item.likedBy.includes(currentUser.id);
-                const newLikedBy = likedByCurrentUser
-                    ? item.likedBy.filter(uid => uid !== currentUser.id)
-                    : [...item.likedBy, currentUser.id];
-                updatedItemForSync = ensureDateObjectsInFeedItem({
-                    ...item,
-                    likedBy: newLikedBy,
-                    isOffline: !isOnline,
-                    syncFailed: item.syncFailed || !isOnline,
-                });
-                return updatedItemForSync;
-            }
-            return item;
-        });
-        return newItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(b.timestamp).getTime());
-    });
+      setFeedItems(prevItems => {
+          const newItems = prevItems.map(item => {
+              if (item.id === feedItemId) {
+                  const likedByCurrentUser = item.likedBy.includes(currentUser.id);
+                  const newLikedBy = likedByCurrentUser
+                      ? item.likedBy.filter(uid => uid !== currentUser.id)
+                      : [...item.likedBy, currentUser.id];
+                  updatedItemForSync = ensureDateObjectsInFeedItem({
+                      ...item,
+                      likedBy: newLikedBy,
+                      isOffline: !isOnline,
+                      syncFailed: item.syncFailed || !isOnline,
+                  });
+                  return updatedItemForSync;
+              }
+              return item;
+          });
+          return newItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(b.timestamp).getTime());
+      });
 
-    if (updatedItemForSync) {
-        if (!isOnline) {
-            const syncItem: SyncQueueItem = {
-                id: `sync-like-${Date.now()}-${feedItemId}`,
-                actionType: SyncActionType.UPDATE_FEED_ITEM,
-                payload: updatedItemForSync,
-                timestamp: Date.now(),
-                itemId: feedItemId,
-                retryCount: 0,
-            };
-            await db.addSyncQueueItemDB(syncItem);
-        } else {
-             await db.addFeedItemDB(updatedItemForSync); 
-        }
+      if (updatedItemForSync) {
+          if (!isOnline) {
+              const syncItem: SyncQueueItem = {
+                  id: `sync-like-${Date.now()}-${feedItemId}`,
+                  actionType: SyncActionType.UPDATE_FEED_ITEM,
+                  payload: updatedItemForSync,
+                  timestamp: Date.now(),
+                  itemId: feedItemId,
+                  retryCount: 0,
+              };
+              await db.addSyncQueueItemDB(syncItem);
+          } else {
+               await db.addFeedItemDB(updatedItemForSync); 
+          }
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      showToast('Yoqtirishni yangilashda xatolik', 3000);
     }
-  }, [currentUser, isOnline, setFeedItems]);
+  }, [currentUser, isOnline, setFeedItems, showToast]);
 
   const addCommentToFeedItem = useCallback(async (feedItemId: string, commentText: string) => {
     if (!currentUser || !commentText.trim()) return;
-    let updatedItemForSync: FeedItem | null = null;
+    
+    try {
+      let updatedItemForSync: FeedItem | null = null;
 
-    setFeedItems(prevItems => {
-        const newItems = prevItems.map(item => {
-            if (item.id === feedItemId) {
-                const newComment: UserComment = {
-                    id: `comment-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-                    userId: currentUser.id,
-                    userName: `${currentUser.name} ${currentUser.surname}`,
-                    userProfilePic: currentUser.profilePictureUrl,
-                    text: commentText.trim(),
-                    timestamp: new Date(),
-                };
-                updatedItemForSync = ensureDateObjectsInFeedItem({
-                    ...item,
-                    comments: [...item.comments, newComment],
-                    isOffline: !isOnline,
-                    syncFailed: item.syncFailed || !isOnline,
-                });
-                return updatedItemForSync;
-            }
-            return item;
-        });
-        return newItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(b.timestamp).getTime());
-    });
+      setFeedItems(prevItems => {
+          const newItems = prevItems.map(item => {
+              if (item.id === feedItemId) {
+                  const newComment: UserComment = {
+                      id: `comment-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                      userId: currentUser.id,
+                      userName: `${currentUser.name} ${currentUser.surname}`,
+                      userProfilePic: currentUser.profilePictureUrl,
+                      text: commentText.trim(),
+                      timestamp: new Date(),
+                  };
+                  updatedItemForSync = ensureDateObjectsInFeedItem({
+                      ...item,
+                      comments: [...item.comments, newComment],
+                      isOffline: !isOnline,
+                      syncFailed: item.syncFailed || !isOnline,
+                  });
+                  return updatedItemForSync;
+              }
+              return item;
+          });
+          return newItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(b.timestamp).getTime());
+      });
 
-    if (updatedItemForSync) {
-        if (!isOnline) {
-            const syncItem: SyncQueueItem = {
-                id: `sync-comment-${Date.now()}-${feedItemId}`,
-                actionType: SyncActionType.UPDATE_FEED_ITEM,
-                payload: updatedItemForSync,
-                timestamp: Date.now(),
-                itemId: feedItemId,
-                retryCount: 0,
-            };
-            await db.addSyncQueueItemDB(syncItem);
-        } else {
-            await db.addFeedItemDB(updatedItemForSync); 
-        }
+      if (updatedItemForSync) {
+          if (!isOnline) {
+              const syncItem: SyncQueueItem = {
+                  id: `sync-comment-${Date.now()}-${feedItemId}`,
+                  actionType: SyncActionType.UPDATE_FEED_ITEM,
+                  payload: updatedItemForSync,
+                  timestamp: Date.now(),
+                  itemId: feedItemId,
+                  retryCount: 0,
+              };
+              await db.addSyncQueueItemDB(syncItem);
+          } else {
+              await db.addFeedItemDB(updatedItemForSync); 
+          }
+      }
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      showToast('Izoh qo\'shishda xatolik', 3000);
     }
-  }, [currentUser, isOnline, setFeedItems]);
+  }, [currentUser, isOnline, setFeedItems, showToast]);
 
   const getUserAchievements = useCallback((userId: string): UserAchievement[] => {
-    const realAchievements = calculateUserAchievements(userId, feedItems);
+    try {
+      const realAchievements = calculateUserAchievements(userId, feedItems);
 
-    // --- DEMO LOGIC for main user ---
-    // If the user is the default user and has no real achievements, show some samples.
-    if (userId === DEFAULT_USER_ID && realAchievements.length === 0) {
-      return [
-        { achievementId: 'FIRST_10K', unlockedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10) },
-        { achievementId: 'BOOKWORM_5', unlockedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5) },
-        { achievementId: 'CONSISTENCY_7D', unlockedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2) },
-      ];
+      // --- DEMO LOGIC for main user ---
+      // If the user is the default user and has no real achievements, show some samples.
+      if (userId === DEFAULT_USER_ID && realAchievements.length === 0) {
+        return [
+          { achievementId: 'FIRST_10K', unlockedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10) },
+          { achievementId: 'BOOKWORM_5', unlockedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5) },
+          { achievementId: 'CONSISTENCY_7D', unlockedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2) },
+        ];
+      }
+      // --- END DEMO LOGIC ---
+
+      return realAchievements;
+    } catch (error) {
+      console.error('Error calculating user achievements:', error);
+      return [];
     }
-    // --- END DEMO LOGIC ---
-
-    return realAchievements;
   }, [feedItems]);
-
 
   const contextValue: AppContextType = {
     currentUser,

@@ -1,41 +1,55 @@
-
-
 import React, { useContext, useMemo, useRef } from 'react';
 import { AppContext } from '../contexts/AppContext';
 import { User, TaskType } from '../types'; 
 import { useScrollAffordance } from '../hooks/useScrollAffordance'; // Import the hook
+import LoadingSpinner from './LoadingSpinner';
 
 const Leaderboard: React.FC = () => {
   const context = useContext(AppContext);
   const scrollableAreaRef = useRef<HTMLDivElement>(null);
   const { showTopShadow, showBottomShadow } = useScrollAffordance(scrollableAreaRef);
 
-
   if (!context) {
     return (
       <aside className="w-full h-full bg-white border-l border-gray-200 p-3 rounded-none">
-        <p className="text-gray-500 text-sm">Yuklanmoqda...</p>
+        <LoadingSpinner text="Yuklanmoqda..." />
       </aside>
     );
   }
 
-  const { allUsers, getUserRating, selectedTaskFilter, setViewingUserProfileId, currentUser } = context;
+  const { allUsers, getUserRating, selectedTaskFilter, setViewingUserProfileId, currentUser, isLoading } = context;
 
   const usersWithRatings = useMemo(() => {
-    return allUsers
-      .map(user => ({
-        ...user,
-        displayRating: getUserRating(user.id, selectedTaskFilter),
-      }))
-      .sort((a, b) => b.displayRating - a.displayRating);
+    try {
+      return allUsers
+        .map(user => ({
+          ...user,
+          displayRating: getUserRating(user.id, selectedTaskFilter),
+        }))
+        .sort((a, b) => b.displayRating - a.displayRating);
+    } catch (error) {
+      console.error('Error calculating user ratings:', error);
+      return [];
+    }
   }, [allUsers, getUserRating, selectedTaskFilter]);
 
-
   const handleUserClick = (userId: string) => {
-    if (setViewingUserProfileId) {
-      setViewingUserProfileId(userId);
+    try {
+      if (setViewingUserProfileId) {
+        setViewingUserProfileId(userId);
+      }
+    } catch (error) {
+      console.error('Error setting viewing user profile:', error);
     }
   };
+
+  if (isLoading) {
+    return (
+      <aside className="w-full h-full bg-white border-l border-gray-200 p-3 rounded-none flex items-center justify-center">
+        <LoadingSpinner text="Reyting yuklanmoqda..." />
+      </aside>
+    );
+  }
 
   return (
     <aside className="w-full h-full bg-white flex flex-col overflow-hidden border-l border-gray-200 rounded-none">
@@ -65,6 +79,10 @@ const Leaderboard: React.FC = () => {
                 src={user.profilePictureUrl || `https://picsum.photos/seed/${user.id}/40/40`} 
                 alt={user.name} 
                 className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-gray-300"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = `https://picsum.photos/seed/${user.id}/40/40`;
+                }}
               />
               <div className="min-w-0 flex-1">
                 <p className={`text-sm font-medium truncate ${isCurrentUser ? 'text-black font-semibold' : 'text-gray-800'}`}>
