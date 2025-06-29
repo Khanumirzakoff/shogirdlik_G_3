@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="uz">
 <head>
@@ -11,10 +10,13 @@
     body {
       margin: 0;
       font-family: 'Futura', 'SF Pro Display', 'Roboto', 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-      font-weight: 300; /* Ensures thin font globally */
+      font-weight: 300;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
     }
+    
     .no-scrollbar::-webkit-scrollbar {
       display: none;
     }
@@ -22,17 +24,77 @@
       -ms-overflow-style: none;
       scrollbar-width: none;
     }
+    
+    /* Glassmorphic base styles */
+    .glass {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    }
+    
+    .glass-card {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.25);
+    }
+    
+    .glass-modal {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 16px 64px 0 rgba(31, 38, 135, 0.4);
+    }
+    
+    .glass-button {
+      background: rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      transition: all 0.3s ease;
+    }
+    
+    .glass-button:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px 0 rgba(31, 38, 135, 0.3);
+    }
+    
+    .glass-input {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .glass-input:focus {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.4);
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+    }
+    
     /* Style for the map container */
     .map-container {
-      background-color: #f3f4f6; /* fallback bg for map (gray-100) */
+      background: rgba(243, 244, 246, 0.1);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
+    
     /* Leaflet map specific styles */
     .leaflet-container {
-        border-radius: 0px !important;
+        border-radius: 12px !important;
+        overflow: hidden;
     }
     .leaflet-control-zoom-in, .leaflet-control-zoom-out {
-        border-radius: 2px !important;
-        border: 1px solid #ccc !important;
+        border-radius: 8px !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        background: rgba(255, 255, 255, 0.2) !important;
+        backdrop-filter: blur(10px) !important;
     }
     .leaflet-control-zoom a {
         color: #333 !important;
@@ -40,15 +102,17 @@
     .map-container > .leaflet-control-container > .leaflet-control-zoom {
         display: none;
     }
-    /* Leaflet attribution visibility fix */
     .leaflet-control-attribution {
         font-size: 10px !important;
+        background: rgba(255, 255, 255, 0.8) !important;
+        backdrop-filter: blur(10px) !important;
+        border-radius: 6px !important;
     }
     .leaflet-control-attribution a {
         color: #0078A8 !important;
     }
 
-    /* Toast Animation from App.tsx */
+    /* Toast Animation */
     .animate-fadeInOut {
       animation: fadeIn 0.3s ease-out, fadeOut 0.3s ease-in 2.7s forwards;
     }
@@ -79,12 +143,12 @@
     }
     .scroll-shadow-container::before {
       top: 0;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.10), transparent);
+      background: linear-gradient(to bottom, rgba(255,255,255,0.15), transparent);
       opacity: 0;
     }
     .scroll-shadow-container::after {
       bottom: 0;
-      background: linear-gradient(to top, rgba(0,0,0,0.10), transparent);
+      background: linear-gradient(to top, rgba(255,255,255,0.15), transparent);
       opacity: 0;
     }
     .scroll-shadow-container.show-top-shadow::before {
@@ -94,7 +158,7 @@
       opacity: 1;
     }
 
-    /* Shake Animation from App.tsx */
+    /* Shake Animation */
     .animate-shake {
       animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
       transform: translate3d(0, 0, 0);
@@ -104,6 +168,39 @@
       20%, 80% { transform: translate3d(2px, 0, 0); }
       30%, 50%, 70% { transform: translate3d(-3px, 0, 0); }
       40%, 60% { transform: translate3d(3px, 0, 0); }
+    }
+
+    /* Floating elements */
+    .floating {
+      animation: float 6s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+
+    /* Gradient text */
+    .gradient-text {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Glassmorphic scrollbar */
+    .glass-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .glass-scrollbar::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+    }
+    .glass-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 3px;
+    }
+    .glass-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.5);
     }
 
   </style>
@@ -120,9 +217,8 @@
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-<body class="bg-white text-slate-900 antialiased">
+<body class="bg-gradient-to-br from-blue-400 via-purple-500 to-purple-700 text-slate-900 antialiased min-h-screen">
   <div id="root"></div>
-  <!-- Leaflet.js script removed from here as it's loaded via importmap -->
   <script type="module" src="/index.tsx"></script>
 </body>
 </html>

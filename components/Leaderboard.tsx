@@ -11,8 +11,10 @@ const Leaderboard: React.FC = () => {
 
   if (!context) {
     return (
-      <aside className="w-full h-full bg-white border-l border-gray-200 p-3 rounded-none">
-        <LoadingSpinner text="Yuklanmoqda..." />
+      <aside className="w-full h-full glass border-l border-white/20 p-3 rounded-r-2xl">
+        <div className="glass-modal rounded-xl p-4">
+          <LoadingSpinner text="Yuklanmoqda..." />
+        </div>
       </aside>
     );
   }
@@ -45,20 +47,22 @@ const Leaderboard: React.FC = () => {
 
   if (isLoading) {
     return (
-      <aside className="w-full h-full bg-white border-l border-gray-200 p-3 rounded-none flex items-center justify-center">
-        <LoadingSpinner text="Reyting yuklanmoqda..." />
+      <aside className="w-full h-full glass border-l border-white/20 p-3 rounded-r-2xl flex items-center justify-center">
+        <div className="glass-modal rounded-xl p-4">
+          <LoadingSpinner text="Reyting yuklanmoqda..." />
+        </div>
       </aside>
     );
   }
 
   return (
-    <aside className="w-full h-full bg-white flex flex-col overflow-hidden border-l border-gray-200 rounded-none">
-      <h3 className="text-md font-semibold text-black sticky top-0 bg-white/80 backdrop-blur-md p-3 z-10 border-b border-gray-200 shadow-sm rounded-none">
+    <aside className="w-full h-full glass flex flex-col overflow-hidden border-l border-white/20 rounded-r-2xl">
+      <h3 className="text-md font-semibold text-white sticky top-0 glass backdrop-blur-md p-3 z-10 border-b border-white/20 shadow-sm rounded-tr-2xl drop-shadow">
         Reyting {selectedTaskFilter ? `(${selectedTaskFilter})` : ''}
       </h3>
       <div 
         ref={scrollableAreaRef}
-        className={`flex-grow overflow-y-auto no-scrollbar p-2 space-y-1 scroll-shadow-container ${showTopShadow ? 'show-top-shadow' : ''} ${showBottomShadow ? 'show-bottom-shadow' : ''}`}
+        className={`flex-grow overflow-y-auto glass-scrollbar p-2 space-y-1 scroll-shadow-container ${showTopShadow ? 'show-top-shadow' : ''} ${showBottomShadow ? 'show-bottom-shadow' : ''}`}
       >
         {usersWithRatings.map((user, index) => {
           const isCurrentUser = user.id === currentUser?.id;
@@ -68,28 +72,28 @@ const Leaderboard: React.FC = () => {
             <button
               key={user.id}
               onClick={() => handleUserClick(user.id)}
-              className={`flex items-center gap-2 p-1.5 rounded-sm transition-colors duration-150 hover:bg-gray-100 w-full text-left
-                          ${isCurrentUser ? 'bg-gray-100 ring-1 ring-black' : ''}`}
+              className={`flex items-center gap-2 p-2 rounded-xl transition-all duration-300 hover:bg-white/10 w-full text-left glass-button
+                          ${isCurrentUser ? 'bg-white/20 ring-1 ring-white/30' : ''}`}
               aria-label={`${user.name} ${user.surname} profilini ko'rish`}
             >
-              <span className={`text-sm font-mono w-6 text-right ${isCurrentUser ? 'text-black font-semibold' : 'text-gray-500'}`}>
+              <span className={`text-sm font-mono w-6 text-right ${isCurrentUser ? 'text-white font-semibold drop-shadow' : 'text-white/60'}`}>
                 {index + 1}.
               </span>
               <img 
                 src={user.profilePictureUrl || `https://picsum.photos/seed/${user.id}/40/40`} 
                 alt={user.name} 
-                className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-gray-300"
+                className="w-8 h-8 rounded-full object-cover flex-shrink-0 border-2 border-white/30 shadow-lg"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.src = `https://picsum.photos/seed/${user.id}/40/40`;
                 }}
               />
               <div className="min-w-0 flex-1">
-                <p className={`text-sm font-medium truncate ${isCurrentUser ? 'text-black font-semibold' : 'text-gray-800'}`}>
+                <p className={`text-sm font-medium truncate ${isCurrentUser ? 'text-white font-semibold drop-shadow' : 'text-white/90'}`}>
                   <span className="md:hidden">{user.name} {shortSurname}</span>
                   <span className="hidden md:inline">{user.name} {user.surname}</span>
                 </p>
-                <p className={`text-xs ${isCurrentUser ? 'text-gray-700 font-medium' : 'text-sky-600'}`}>
+                <p className={`text-xs ${isCurrentUser ? 'text-white/80 font-medium' : 'text-blue-300'}`}>
                   {user.displayRating} ball
                 </p>
               </div>

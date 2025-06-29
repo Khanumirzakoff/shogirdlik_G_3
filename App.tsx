@@ -26,8 +26,10 @@ const App: React.FC = () => {
   // Fallback for context loading
   if (!context) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-100">
-        <LoadingSpinner size="lg" text="Context yuklanmoqda..." />
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-blue-400 via-purple-500 to-purple-700">
+        <div className="glass-modal rounded-2xl p-8">
+          <LoadingSpinner size="lg" text="Context yuklanmoqda..." />
+        </div>
       </div>
     );
   }
@@ -110,7 +112,9 @@ const App: React.FC = () => {
 
   const LoadingPage: React.FC = () => (
     <div className="flex items-center justify-center h-full">
-      <LoadingSpinner size="lg" text="Yuklanmoqda..." />
+      <div className="glass-modal rounded-2xl p-8">
+        <LoadingSpinner size="lg" text="Yuklanmoqda..." />
+      </div>
     </div>
   );
 
@@ -144,16 +148,16 @@ const App: React.FC = () => {
     // Standard page (home)
     return (
       <div className="flex flex-col flex-grow overflow-hidden"> {/* Wrapper for standard page content */}
-        <header className="sticky top-0 bg-white/90 backdrop-blur-md z-20 shadow-sm rounded-none">
-            <div className="px-4 py-2.5 flex items-center justify-between border-b border-gray-200 relative">
+        <header className="sticky top-0 glass backdrop-blur-md z-20 shadow-lg rounded-t-2xl">
+            <div className="px-4 py-3 flex items-center justify-between border-b border-white/20 relative">
               <button
                 onClick={() => setIsSidebarOpen(true)}
-                className="p-2 text-gray-600 hover:text-black rounded-full hover:bg-gray-100 transition-colors -ml-2"
+                className="glass-button p-2 text-white/80 hover:text-white rounded-full transition-all duration-300 -ml-2"
                 aria-label="Menyuni ochish"
               >
                 <MenuIcon className="w-6 h-6" />
               </button>
-              <h1 className="text-lg font-bold text-black tracking-wide absolute left-1/2 -translate-x-1/2">SHOGIRDLIK DASTURI</h1>
+              <h1 className="text-lg font-bold text-white tracking-wide absolute left-1/2 -translate-x-1/2 drop-shadow-lg">SHOGIRDLIK DASTURI</h1>
               <div className="w-10 h-10"></div> {/* Placeholder for alignment */}
             </div>
             {currentView === 'home' && <TaskFilterButtons />}
@@ -182,7 +186,7 @@ const App: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <div className="h-screen flex flex-col max-w-6xl mx-auto bg-white shadow-2xl rounded-none">
+      <div className="h-screen flex flex-col max-w-6xl mx-auto glass rounded-2xl shadow-2xl m-4 overflow-hidden">
          {currentUser && <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} onLogoutRequest={requestLogout}/>}
 
         {getPageContent()}
@@ -213,7 +217,7 @@ const App: React.FC = () => {
 
         {toastMessage && (
           <div
-              className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-black text-white px-6 py-3 rounded-sm shadow-lg z-[100] text-sm animate-fadeInOut"
+              className="fixed bottom-20 left-1/2 -translate-x-1/2 glass-modal text-white px-6 py-3 rounded-2xl shadow-lg z-[100] text-sm animate-fadeInOut"
               role="alert"
               aria-live="assertive"
           >
@@ -223,7 +227,7 @@ const App: React.FC = () => {
 
         {!isOnline && (
           <div
-              className="fixed top-0 left-0 right-0 bg-amber-500 text-black px-4 py-2 text-xs font-semibold text-center z-[200] flex items-center justify-center space-x-2 shadow-lg"
+              className="fixed top-0 left-0 right-0 glass text-white px-4 py-2 text-xs font-semibold text-center z-[200] flex items-center justify-center space-x-2 shadow-lg"
               role="status"
           >
               <WifiOffIcon className="w-4 h-4"/>
@@ -233,14 +237,14 @@ const App: React.FC = () => {
 
         {showLogoutConfirm && (
           <div 
-            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[101] p-4"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[101] p-4"
             role="dialog" 
             aria-modal="true" 
             aria-labelledby="logoutConfirmDialogTitle"
             onClick={cancelLogout} 
           > 
             <div 
-              className="bg-white p-5 md:p-6 rounded-none shadow-xl max-w-xs w-full border border-gray-300"
+              className="glass-modal p-6 rounded-2xl shadow-2xl max-w-xs w-full"
               onClick={(e) => e.stopPropagation()} 
             >
               <h4 id="logoutConfirmDialogTitle" className="text-lg font-semibold text-gray-900 mb-2">
@@ -252,13 +256,13 @@ const App: React.FC = () => {
               <div className="flex justify-end space-x-3">
                 <button
                   onClick={cancelLogout}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-sm transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1"
+                  className="glass-button px-4 py-2 text-sm font-medium text-gray-700 rounded-xl transition-all duration-300"
                 >
                   {UZBEK_STRINGS.noCancel}
                 </button>
                 <button
                   onClick={confirmLogout}
-                  className="px-4 py-2 text-sm font-medium text-white bg-rose-500 hover:bg-rose-600 rounded-sm transition-colors focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-1"
+                  className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-red-500 to-red-600 rounded-xl transition-all duration-300 hover:from-red-600 hover:to-red-700 shadow-lg"
                   autoFocus
                 >
                   {UZBEK_STRINGS.yesLogout}

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { PlusIcon } from './icons/PlusIcon';
 import { UZBEK_STRINGS } from '../constants';
@@ -39,15 +38,15 @@ const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ onClick, se
     <button
       onClick={onClick}
       className={`fixed bottom-20 right-4 md:right-5 lg:bottom-24 lg:right-10 z-40 flex items-center justify-center 
-                  bg-black text-white rounded-full shadow-xl 
-                  hover:bg-gray-800 active:bg-gray-700 active:scale-95
-                  focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black
-                  transition-all duration-200 ease-in-out
+                  glass-modal text-white rounded-full shadow-2xl floating
+                  hover:scale-105 active:scale-95
+                  focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white/50
+                  transition-all duration-300 ease-in-out
                   ${showLabel ? 'pl-4 pr-5 py-3 h-12' : 'w-14 h-14 p-0'} ${className}`}
       aria-label={label}
     >
-      <IconComponent className={`flex-shrink-0 ${showLabel ? 'w-5 h-5 mr-2.5' : 'w-7 h-7'}`} />
-      {showLabel && <span className="text-sm font-medium whitespace-nowrap">{label}</span>}
+      <IconComponent className={`flex-shrink-0 ${showLabel ? 'w-5 h-5 mr-2.5' : 'w-7 h-7'} drop-shadow`} />
+      {showLabel && <span className="text-sm font-medium whitespace-nowrap drop-shadow">{label}</span>}
     </button>
   );
 };

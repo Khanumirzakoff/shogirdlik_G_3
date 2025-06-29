@@ -12,7 +12,9 @@ const FeedArea: React.FC = () => {
   if (!context) {
     return (
       <div className="flex-grow flex items-center justify-center p-6">
-        <LoadingSpinner text="Context yuklanmoqda..." />
+        <div className="glass-modal rounded-2xl p-8">
+          <LoadingSpinner text="Context yuklanmoqda..." />
+        </div>
       </div>
     );
   }
@@ -24,7 +26,9 @@ const FeedArea: React.FC = () => {
   if (isLoading) {
     return (
       <div className="flex-grow flex items-center justify-center p-6">
-        <LoadingSpinner text="Ma'lumotlar yuklanmoqda..." />
+        <div className="glass-modal rounded-2xl p-8">
+          <LoadingSpinner text="Ma'lumotlar yuklanmoqda..." />
+        </div>
       </div>
     );
   }
@@ -37,17 +41,21 @@ const FeedArea: React.FC = () => {
         message = `${selectedTaskFilter} bo'yicha xabarlar yo'q.`;
     }
     return (
-      <div className="flex-grow flex items-center justify-center p-6 text-gray-500">
-        <p>{message}</p>
+      <div className="flex-grow flex items-center justify-center p-6">
+        <div className="glass-card rounded-2xl p-8 text-center">
+          <p className="text-white/80 text-lg">{message}</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <main className="flex-grow overflow-y-auto bg-white no-scrollbar pb-24">
-      {filteredFeedItems.map((item: FeedItem) => (
-        <FeedCard key={item.id} item={item} />
-      ))}
+    <main className="flex-grow overflow-y-auto glass-scrollbar pb-24 px-2">
+      <div className="space-y-4 pt-4">
+        {filteredFeedItems.map((item: FeedItem) => (
+          <FeedCard key={item.id} item={item} />
+        ))}
+      </div>
     </main>
   );
 };
