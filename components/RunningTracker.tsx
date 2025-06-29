@@ -89,6 +89,7 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
 
   const mainTimerRef = useRef<number | null>(null);
   const watchIdRef = useRef<number | null>(null);
+  const mountedRef = useRef<boolean>(true);
   
   const mapRef = useRef<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
@@ -165,6 +166,8 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
   }, [triggerLockShakeAnimation]);
 
   const handleInitialLocationSuccess = useCallback((position: GeolocationPosition) => {
+    if (!mountedRef.current) return;
+    
     const { latitude, longitude, accuracy, speed: speedMPS } = position.coords;
     
     if (accuracy <= MIN_ACCURACY_METERS_FOR_DISPLAY_WARNING) {
@@ -186,6 +189,8 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
   }, []);
 
   const handleInitialLocationError = useCallback((error: GeolocationPositionError) => {
+    if (!mountedRef.current) return;
+    
     console.error(`Initial GPS Error (Code: ${error.code}): ${error.message}`, error);
     let displayMessage: string;
     if (error.code === error.PERMISSION_DENIED) {
@@ -204,6 +209,7 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
   }, []);
 
   useEffect(() => {
+    mountedRef.current = true;
     requestAnimationFrame(() => setIsVisible(true)); 
 
     if (!lastGoodPositionRef.current && navigator.geolocation) {
@@ -272,6 +278,8 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
     }
     
     return () => {
+      mountedRef.current = false;
+      
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -352,6 +360,8 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
 
 
   const handleRuntimeLocationSuccessInternal = useCallback((position: GeolocationPosition) => {
+    if (!mountedRef.current) return;
+    
     const { latitude, longitude, speed: speedMPS, accuracy } = position.coords;
     const currentSpeedKmh = speedMPS !== null ? speedMPS * 3.6 : 0;
     setCurrentSpeed(currentSpeedKmh);
@@ -406,6 +416,8 @@ const RunningTracker: React.FC<RunningTrackerProps> = ({ onClose }) => {
   }, [status]); 
 
   const handleRuntimeLocationErrorInternal = useCallback((error: GeolocationPositionError) => {
+    if (!mountedRef.current) return;
+    
     console.error(`Runtime GPS Error (Code: ${error.code}): ${error.message}`, error);
     let displayMessage: string;
     if (error.code === error.PERMISSION_DENIED) {
